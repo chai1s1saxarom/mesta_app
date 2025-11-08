@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'welcome_screen.dart';
-
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,10 +16,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   
   // Контроллеры для полей ввода
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _middleNameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _passportSeriesNumberController = TextEditingController();
   final TextEditingController _passportIssuedByController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
   // Маска для серии и номера паспорта (формат: 1234 567890)
   final MaskTextInputFormatter _passportMaskFormatter = MaskTextInputFormatter(
@@ -34,12 +38,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
     },
   );
 
+  // Переменная для отслеживания состояния загрузки
+  bool _isLoading = false;
+
+  // Функция для сохранения данных в Firebase
+  Future<void> _registerUser() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Получаем экземпляр Firestore
+        final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+        // Создаем объект с данными пользователя
+        Map<String, dynamic> userData = {
+          'firstName': _firstNameController.text.trim(),
+          'lastName': _lastNameController.text.trim(),
+          'middleName': _middleNameController.text.trim(),
+          'passportSeriesNumber': _passportSeriesNumberController.text.trim(),
+          'passportIssuedBy': _passportIssuedByController.text.trim(),
+          'email': _emailController.text.trim().toLowerCase(),
+          'password': _passwordController.text, // В реальном приложении пароль нужно хэшировать!
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        // Сохраняем данные в коллекции 'users'
+        await firestore.collection('users').add(userData);
+
+        // Показываем сообщение об успехе
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Регистрация завершена успешно!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Переходим на экран приветствия
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          (route) => false,
+        );
+
+      } catch (e) {
+        // Обрабатываем ошибки
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка регистрации: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } else {
+      // Есть ошибки валидации
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Пожалуйста, заполните все поля корректно'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _middleNameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _passportSeriesNumberController.dispose();
     _passportIssuedByController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -64,6 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 // Поле имени
                 TextFormField(
+                  controller: _firstNameController,
                   validator: (value) {
                     if (value!.isEmpty) return 'Поле обязательно';
                     return null;
@@ -81,6 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 
                 // Поле фамилия
                 TextFormField(
+                  controller: _lastNameController,
                   validator: (value) {
                     if (value!.isEmpty) return 'Поле обязательно';
                     return null;
@@ -98,6 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 // Поле отчество
                 TextFormField(
+                  controller: _middleNameController,
                   decoration: InputDecoration(
                     labelText: 'Отчество (необязательно)',
                     prefixIcon: const Icon(Icons.person),
@@ -111,10 +191,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Поле серия и номер паспорта с маской
                 TextFormField(
                   controller: _passportSeriesNumberController,
-                  inputFormatters: [_passportMaskFormatter], // Применяем маску
+                  inputFormatters: [_passportMaskFormatter],
                   validator: (value) {
                     if (value!.isEmpty) return 'Введите серию и номер паспорта';
-                    // Проверка полного заполнения маски (10 цифр + пробел)
                     if (value.length != 11 || !value.contains(' ')) {
                       return 'Формат: 1234 567890';
                     }
@@ -136,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Поле "Кем выдан" с автоматическим верхним регистром
                 TextFormField(
                   controller: _passportIssuedByController,
-                  inputFormatters: [_upperCaseFormatter], // Автоматический верхний регистр
+                  inputFormatters: [_upperCaseFormatter],
                   validator: (value) {
                     if (value!.isEmpty) return 'Введите кем выдан паспорт';
                     if (value.length < 5) return 'Введите полное название организации';
@@ -153,12 +232,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     alignLabelWithHint: true,
                   ),
-                  textCapitalization: TextCapitalization.characters, // Дополнительно для мобильных клавиатур
+                  textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 20),
 
                 // Поле email
                 TextFormField(
+                  controller: _emailController,
                   validator: (value) {
                     if (value!.isEmpty) return 'Поле обязательно';
                     if (!value.contains('@')) return 'Введите корректный email';
@@ -223,34 +303,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Проверяем валидацию формы
-                      if (_formKey.currentState!.validate()) {
-                        // Все поля валидны
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Регистрация завершена!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        
-                        // TODO: Добавить переход на другой экран или логику регистрации
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                          (route) => false,
-                        );
-                        
-                      } else {
-                        // Есть ошибки валидации
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Пожалуйста, заполните все поля корректно'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _isLoading ? null : _registerUser,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -258,10 +311,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Зарегистрироваться',
-                      style: TextStyle(fontSize: 18),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Зарегистрироваться',
+                            style: TextStyle(fontSize: 18),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 20),

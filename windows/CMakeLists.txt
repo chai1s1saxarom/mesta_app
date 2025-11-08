@@ -2,6 +2,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(my_app LANGUAGES CXX)
 
+# Добавь эти строки если их нет
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FIREBASE_CPP REQUIRED firebase_app)
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "my_app")
