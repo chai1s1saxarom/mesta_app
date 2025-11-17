@@ -52,8 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-      try {
-    print('🚀 Начало регистрации...');
+    try {
     
     // 1. Создаем пользователя в Firebase Auth
     final userCredential = await _auth.createUserWithEmailAndPassword(
@@ -62,11 +61,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     final user = userCredential.user!;
-    print('✅ Пользователь создан в Auth: ${user.uid}');
 
     // 2. Отправляем email для подтверждения
     await user.sendEmailVerification();
-    print('📧 Email подтверждения отправлен');
 
     // 3. Сохраняем в Firestore
     final userData = {
@@ -83,12 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'updatedAt': FieldValue.serverTimestamp(),
       'role': 'user',
     };
-
-    print('💾 Сохраняем данные в Firestore: $userData');
     
     await _firestore.collection('users').doc(user.uid).set(userData);
-    print('✅ Данные сохранены в Firestore');
-
     _showSuccessDialog();
 
   } on FirebaseAuthException catch (e) {
