@@ -4,7 +4,17 @@ project(my_app LANGUAGES CXX)
 
 # Добавь эти строки если их нет
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(FIREBASE_CPP REQUIRED firebase_app)
+
+set(FIREBASE_SDK_PATH "C:/путь/к/firebase_cpp_sdk" CACHE PATH "Путь к Firebase C++ SDK")
+
+# Включаем заголовки
+include_directories(${FIREBASE_SDK_PATH}/include)
+
+# Добавляем библиотеки
+add_library(firebase_app STATIC IMPORTED)
+set_target_properties(firebase_app PROPERTIES
+    IMPORTED_LOCATION ${FIREBASE_SDK_PATH}/libs/x64/firebase_app.lib
+)
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "my_app")
