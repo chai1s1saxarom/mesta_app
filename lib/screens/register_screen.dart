@@ -62,10 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final user = userCredential.user!;
 
-    // 2. Отправляем email для подтверждения
-    await user.sendEmailVerification();
-
-    // 3. Сохраняем в Firestore
+    // 2. Сохраняем в Firestore
     final userData = {
       'userId': user.uid,
       'firstName': _firstNameController.text.trim(),
@@ -85,14 +82,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _showSuccessDialog();
 
   } on FirebaseAuthException catch (e) {
-    print('❌ Ошибка Auth: ${e.code} - ${e.message}');
     _showErrorDialog(e);
   } on FirebaseException catch (e) {
-    print('❌ Ошибка Firestore: ${e.code} - ${e.message}');
     _showErrorDialog(e);
   } catch (e, stack) {
-    print('❌ Неизвестная ошибка: $e');
-    print('Stack: $stack');
     _showErrorDialog(Exception('Ошибка: $e'));
   } finally {
     setState(() => _isLoading = false);
@@ -105,7 +98,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Регистрация успешна!'),
-        content: const Text('На ваш email отправлено письмо с подтверждением. Проверьте почту.'),
         actions: [
           TextButton(
             onPressed: () {

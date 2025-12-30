@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'welcome_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'edit_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -67,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   // Вкладка оплаты
   Widget _buildPaymentTab() {
-    return Padding(
+    return SingleChildScrollView(  // ДОБАВЛЕНО
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,61 +81,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const ListTile(
-                    leading: Icon(Icons.credit_card, color: Colors.blue),
-                    title: Text('Банковская карта'),
-                    subtitle: Text('Оплата картой Visa/Mastercard'),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _showPaymentDialog('Банковская карта');
-                      },
-                      child: const Text('Оплатить картой'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const ListTile(
-                    leading: Icon(Icons.phone_android, color: Colors.green),
-                    title: Text('Электронный кошелек'),
-                    subtitle: Text('Qiwi, YooMoney, WebMoney'),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _showPaymentDialog('Электронный кошелек');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                      ),
-                      child: const Text('Оплатить электронно'),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -163,120 +112,301 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
+          const SizedBox(height: 20),  // Добавлен отступ внизу для скролла
         ],
       ),
     );
   }
 
-  // Вкладка личного кабинета
-  Widget _buildPersonalCabinetTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.person,
-            size: 80,
-            color: Colors.blue,
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Личный кабинет',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Добро пожаловать в ваш кабинет!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 30),
-          
-          // Информация о пользователе
-          Card(
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
+// Вкладка личного кабинета
+Widget _buildPersonalCabinetTab() {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+
+  if (userId == null) {
+    return const Center(child: Text('Пользователь не авторизован'));
+  }
+
+  final userDocRef = FirebaseFirestore.instance.collection('users').doc(userId);
+  
+  return StreamBuilder<DocumentSnapshot>(
+    stream: userDocRef.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (snapshot.hasError) {
+        return Center(child: Text('Ошибка: ${snapshot.error}'));
+      }
+
+      if (!snapshot.hasData || !snapshot.data!.exists) {
+        return const Center(child: Text('Данные пользователя не найдены'));
+      }
+
+      final userData = snapshot.data!.data() as Map<String, dynamic>;
+      
+      // Форматирование даты
+      String formatTimestamp(dynamic timestamp) {
+        if (timestamp == null) return 'Дата не указана';
+        try {
+          if (timestamp is Timestamp) {
+            return DateFormat('dd.MM.yyyy HH:mm').format(timestamp.toDate());
+          }
+          return timestamp.toString();
+        } catch (e) {
+          return 'Ошибка формата даты';
+        }
+      }
+
+      // Получаем все данные
+      final userEmail = userData['email'] ?? 'Не указан';
+      final userPhone = userData['telephone'] ?? 'Не указан';
+      final firstName = userData['firstName'] ?? 'Не указано';
+      final lastName = userData['lastName'] ?? 'Не указано';
+      final middleName = userData['middleName'] ?? 'Не указано';
+      final passportSeries = userData['passportSeriesNumber'] ?? 'Не указаны';
+      final passportIssuedBy = userData['passportIssuedBy'] ?? 'Не указано';
+      final regDate = formatTimestamp(userData['createdAt']);
+      final updatedDate = formatTimestamp(userData['updatedAt']);
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Заголовок и аватар
+            Center(
               child: Column(
                 children: [
-                  const ListTile(
-                    leading: Icon(Icons.email),
-                    title: Text('Email'),
-                    subtitle: Text('user@example.com'),
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.blue, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 60,
+                      color: Colors.blue,
+                    ),
                   ),
-                  const ListTile(
-                    leading: Icon(Icons.phone),
-                    title: Text('Телефон'),
-                    subtitle: Text('+7 (999) 123-45-67'),
+                  const SizedBox(height: 20),
+                  Text(
+                    '$lastName $firstName ${middleName.isNotEmpty ? middleName : ''}',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  const ListTile(
-                    leading: Icon(Icons.calendar_today),
-                    title: Text('Дата регистрации'),
-                    subtitle: Text('01 января 2024'),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // TODO: Редактирование профиля
-                      },
-                      child: const Text('Редактировать профиль'),
+                  const SizedBox(height: 5),
+                  Text(
+                    userEmail,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          
-          // Кнопка выхода
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 30),
+            
+            // Основная информация
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Контактная информация',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    _buildInfoRow(Icons.phone, 'Телефон', userPhone),
+                    _buildInfoRow(Icons.email, 'Email', userEmail),
+                    _buildInfoRow(Icons.person, 'ФИО', 
+                        '$lastName $firstName ${middleName.isNotEmpty ? middleName : ''}'),
+                  ],
                 ),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Icon(Icons.logout),
-                  SizedBox(width: 10),
-                  Text(
-                    'Выйти',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Паспортные данные
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Паспортные данные',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    _buildInfoRow(Icons.credit_card, 'Серия и номер', passportSeries),
+                    _buildInfoRow(Icons.account_balance, 'Кем выдан', passportIssuedBy),
+                  ],
+                ),
               ),
             ),
+            
+            const SizedBox(height: 20),
+            
+            // Системная информация
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Системная информация',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    _buildInfoRow(Icons.calendar_today, 'Дата регистрации', regDate),
+                    _buildInfoRow(Icons.update, 'Последнее обновление', updatedDate),
+                    _buildInfoRow(Icons.verified_user, 'Роль', userData['role'] ?? 'user'),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 30),
+            
+            // Кнопки действий
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(userData: userData),
+                        ),
+                      ).then((updated) {
+                        if (updated == true) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Профиль успешно обновлен')),
+                          );
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Редактировать профиль'),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // Выход из системы
+                      await FirebaseAuth.instance.signOut();
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                        (Route<dynamic> route) => false,
+                      );
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Выйти из аккаунта'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+// Вспомогательный метод для отображения строки информации
+Widget _buildInfoRow(IconData icon, String title, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.blueGrey, size: 24),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // Вкладка записи на выставку
   Widget _buildExhibitionTab() {
-    return Padding(
+    return SingleChildScrollView(  
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,6 +574,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
+          const SizedBox(height: 20),  // Добавлен отступ внизу для скролла
         ],
       ),
     );

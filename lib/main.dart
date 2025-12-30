@@ -5,8 +5,10 @@ import 'screens/welcome_screen.dart';
 import 'firebase_options.dart'; 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const MyApp());
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, // обязательно передать options
+  );
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
